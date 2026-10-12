@@ -60,7 +60,7 @@ public final class SimpleFtpClient implements Closeable {
                 throw new EaiException(ErrorCode.FTP_CONNECT, "FTP 서버 응답 이상: " + r);
             }
         } catch (IOException e) {
-            throw new EaiException(ErrorCode.FTP_CONNECT, "FTP 연결 실패 " + host + ":" + port + " - " + e.getMessage(), e);
+            throw new EaiException(ErrorCode.FTP_CONNECT, "FTP 연결 실패 " + host + ":" + port + " - " + e.getClass().getSimpleName() + ": " + e.getMessage(), e);
         }
     }
 
@@ -113,7 +113,7 @@ public final class SimpleFtpClient implements Closeable {
     public void close() {
         if (control == null) return;
         try {
-            if (!control.isClosed()) {
+            if (out != null && control.isConnected() && !control.isClosed()) {
                 out.write("QUIT\r\n");
                 out.flush();
             }
