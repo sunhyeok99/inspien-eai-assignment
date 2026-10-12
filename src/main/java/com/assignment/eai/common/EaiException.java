@@ -3,6 +3,8 @@ package com.assignment.eai.common;
 /** 연계 처리 공통 예외. 어느 단계에서 어떤 종류의 오류가 났는지를 ErrorCode 로 표현한다. */
 public class EaiException extends RuntimeException {
 
+    private static final long serialVersionUID = 1L;
+
     private final ErrorCode errorCode;
 
     public EaiException(ErrorCode errorCode, String message) {
