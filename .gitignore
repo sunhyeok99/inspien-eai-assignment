@@ -1,0 +1,17 @@
+# 접속 정보·지원자 키 등 민감 정보 (init 이 생성) - 절대 커밋하지 않음
+config/application.properties
+config/conn/
+config/received/
+
+# 실행 결과
+logs/
+out/
+target/
+lib/
+*.class
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.DS_Store
