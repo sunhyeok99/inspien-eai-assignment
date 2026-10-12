@@ -1,0 +1,126 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="880" viewBox="0 0 1500 880" font-family="'Noto Sans CJK KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif">
+<defs>
+<marker id="ab" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2563eb"/></marker>
+<marker id="ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#16a34a"/></marker>
+<marker id="ak" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#475569"/></marker>
+</defs>
+<rect width="1500" height="880" fill="#ffffff"/>
+<text x="40" y="44" font-size="22" font-weight="800" fill="#0f172a" text-anchor="start">TO-BE 아키텍처 — 인스피언 EAI 연계 서비스 (Hub &amp; Spoke)</text>
+<text x="40" y="70" font-size="13.5" font-weight="400" fill="#475569" text-anchor="start">Point-to-Point 로 직접 연결되던 주문·회계·운송 연계를 중앙 연계 서비스가 Sender → Mapper → Receiver 구조로 중계</text>
+<text x="135" y="112" font-size="13" font-weight="700" fill="#475569" text-anchor="middle">송신 시스템</text>
+<text x="1360" y="112" font-size="13" font-weight="700" fill="#475569" text-anchor="middle">수신 시스템</text>
+<rect x="270" y="95" width="960" height="755" rx="16" fill="#f8fafc" stroke="#0f172a" stroke-width="2"/>
+<text x="750" y="122" font-size="15" font-weight="800" fill="#0f172a" text-anchor="middle">Inspien EAI 연계 서비스 (Java 17 · JDK 표준 + JDBC 드라이버)</text>
+<text x="380" y="148" font-size="12" font-weight="800" fill="#475569" text-anchor="middle">SENDER</text>
+<text x="660" y="148" font-size="12" font-weight="800" fill="#475569" text-anchor="middle">MAPPER</text>
+<text x="1005" y="148" font-size="12" font-weight="800" fill="#475569" text-anchor="middle">RECEIVER</text>
+<line x1="520" y1="135" x2="520" y2="700" stroke="#cbd5e1" stroke-dasharray="4 4"/>
+<line x1="855" y1="135" x2="855" y2="700" stroke="#cbd5e1" stroke-dasharray="4 4"/>
+<rect x="290" y="160" width="920" height="270" rx="12" fill="#eff6ff" stroke="#2563eb" stroke-opacity=".35"/>
+<text x="305" y="182" font-size="13" font-weight="800" fill="#2563eb" text-anchor="start">시나리오 1 · IF_ORDER_001 · 실시간(동기)</text>
+<rect x="305" y="235" width="150" height="74" rx="10" fill="#fff" stroke="#2563eb" stroke-width="1.6"/>
+<text x="380.0" y="261.0" font-size="14.5" font-weight="700" fill="#0f172a" text-anchor="middle">REST Sender</text>
+<text x="380.0" y="280.0" font-size="12" font-weight="400" fill="#475569" text-anchor="middle">POST /api/orders</text>
+<text x="380.0" y="296.0" font-size="12" font-weight="400" fill="#475569" text-anchor="middle">XML 수신 · JSON 응답</text>
+<rect x="545" y="200" width="150" height="64" rx="10" fill="#fff" stroke="#2563eb" stroke-width="1.6"/>
+<text x="620.0" y="221.0" font-size="14.5" font-weight="700" fill="#0f172a" text-anchor="middle">Parser · Validator</text>
+<text x="620.0" y="240.0" font-size="12" font-weight="400" fill="#475569" text-anchor="middle">EUC-KR/UTF-8 · trim</text>
+<text x="620.0" y="256.0" font-size="12" font-weight="400" fill="#475569" text-anchor="middle">필수값·형식 검증</text>
+<rect x="545" y="290" width="150" height="64" rx="10" fill="#fff" stroke="#2563eb" stroke-width="1.6"/>
+<text x="620.0" y="311.0" font-size="14.5" font-weight="700" fill="#0f172a" text-anchor="middle">OrderMapper</text>
+<text x="620.0" y="330.0" font-size="12" font-weight="400" fill="#475569" text-anchor="middle">HEADER 1:N ITEM → 플랫</text>
+<text x="620.0" y="346.0" font-size="12" font-weight="400" fill="#475569" text-anchor="middle">ORDER_ID 채번</text>
+<rect x="715" y="200" width="125" height="64" rx="10" fill="#fff" stroke="#2563eb" stroke-width="1.6"/>
+<text x="777.5" y="229.0" font-size="14.5" font-weight="700" fill="#0f172a" text-anchor="middle">ReceiptMapper</text>
+<text x="777.5" y="248.0" font-size="12" font-weight="400" fill="#475569" text-anchor="middle">^ 구분 · 순서 고정</text>
+<rect x="900" y="200" width="210" height="64" rx="10" fill="#fff" stroke="#2563eb" stroke-width="1.6"/>
+<text x="1005.0" y="229.0" font-size="14.5" font-weight="700" fill="#0f172a" text-anchor="middle">FTP Receiver</text>
+<text x="1005.0" y="248.0" font-size="12" font-weight="400" fill="#475569" text-anchor="middle">영수증 업로드 · SIZE 검증</text>
+<rect x="900" y="300" width="210" height="64" rx="10" fill="#fff" stroke="#2563eb" stroke-width="1.6"/>
+<text x="1005.0" y="329.0" font-size="14.5" font-weight="700" fill="#0f172a" text-anchor="middle">JDBC Receiver</text>
+<text x="1005.0" y="348.0" font-size="12" font-weight="400" fill="#475569" text-anchor="middle">ORDER_TB INSERT (미커밋)</text>
+<path d="M455,262 L545,232" fill="none" stroke="#2563eb" stroke-width="2" marker-end="url(#ab)"/>
+<path d="M620,264 L620,290" fill="none" stroke="#2563eb" stroke-width="2" marker-end="url(#ab)"/>
+<path d="M695,300 L715,258" fill="none" stroke="#2563eb" stroke-width="2" marker-end="url(#ab)"/>
+<path d="M840,232 L900,232" fill="none" stroke="#2563eb" stroke-width="2" marker-end="url(#ab)"/>
+<path d="M695,332 L900,332" fill="none" stroke="#2563eb" stroke-width="2" marker-end="url(#ab)"/>
+<rect x="305" y="375" width="805" height="42" rx="8" fill="#fff" stroke="#2563eb" stroke-opacity=".5"/>
+<text x="707" y="401" font-size="12.5" font-weight="600" fill="#2563eb" text-anchor="middle">동기화: INSERT(미커밋) → FTP 업로드 → 둘 다 성공 시 COMMIT 후 성공 응답 │ 실패 시 ROLLBACK, COMMIT 실패 시 업로드 파일 삭제(보상)</text>
+<rect x="290" y="460" width="920" height="215" rx="12" fill="#f0fdf4" stroke="#16a34a" stroke-opacity=".35"/>
+<text x="305" y="482" font-size="13" font-weight="800" fill="#16a34a" text-anchor="start">시나리오 2 · IF_SHIP_001 · 5분 주기 배치(비동기)</text>
+<rect x="305" y="515" width="150" height="74" rx="10" fill="#fff" stroke="#16a34a" stroke-width="1.6"/>
+<text x="380.0" y="541.0" font-size="14.5" font-weight="700" fill="#0f172a" text-anchor="middle">Scheduler Sender</text>
+<text x="380.0" y="560.0" font-size="12" font-weight="400" fill="#475569" text-anchor="middle">5분 주기 · 단일 스레드</text>
+<text x="380.0" y="576.0" font-size="12" font-weight="400" fill="#475569" text-anchor="middle">겹침 실행 방지</text>
+<rect x="545" y="500" width="150" height="64" rx="10" fill="#fff" stroke="#16a34a" stroke-width="1.6"/>
+<text x="620.0" y="521.0" font-size="14.5" font-weight="700" fill="#0f172a" text-anchor="middle">JDBC 조회</text>
+<text x="620.0" y="540.0" font-size="12" font-weight="400" fill="#475569" text-anchor="middle">ORDER_TB 미전송</text>
+<text x="620.0" y="556.0" font-size="12" font-weight="400" fill="#475569" text-anchor="middle">STATUS = 'N'</text>
+<rect x="545" y="590" width="150" height="64" rx="10" fill="#fff" stroke="#16a34a" stroke-width="1.6"/>
+<text x="620.0" y="611.0" font-size="14.5" font-weight="700" fill="#0f172a" text-anchor="middle">ShipmentMapper</text>
+<text x="620.0" y="630.0" font-size="12" font-weight="400" fill="#475569" text-anchor="middle">운송사 스키마 변환</text>
+<text x="620.0" y="646.0" font-size="12" font-weight="400" fill="#475569" text-anchor="middle">SHIPMENT_ID 채번</text>
+<rect x="900" y="500" width="210" height="64" rx="10" fill="#fff" stroke="#16a34a" stroke-width="1.6"/>
+<text x="1005.0" y="521.0" font-size="14.5" font-weight="700" fill="#0f172a" text-anchor="middle">상태 갱신</text>
+<text x="1005.0" y="540.0" font-size="12" font-weight="400" fill="#475569" text-anchor="middle">성공 건만 ORDER_TB</text>
+<text x="1005.0" y="556.0" font-size="12" font-weight="400" fill="#475569" text-anchor="middle">STATUS = 'Y'</text>
+<rect x="900" y="590" width="210" height="64" rx="10" fill="#fff" stroke="#16a34a" stroke-width="1.6"/>
+<text x="1005.0" y="611.0" font-size="14.5" font-weight="700" fill="#0f172a" text-anchor="middle">JDBC Receiver</text>
+<text x="1005.0" y="630.0" font-size="12" font-weight="400" fill="#475569" text-anchor="middle">SHIPMENT_TB INSERT</text>
+<text x="1005.0" y="646.0" font-size="12" font-weight="400" fill="#475569" text-anchor="middle">(기적재 여부 먼저 확인)</text>
+<path d="M455,545 L545,532" fill="none" stroke="#16a34a" stroke-width="2" marker-end="url(#ag)"/>
+<path d="M620,564 L620,590" fill="none" stroke="#16a34a" stroke-width="2" marker-end="url(#ag)"/>
+<path d="M695,622 L900,622" fill="none" stroke="#16a34a" stroke-width="2" marker-end="url(#ag)"/>
+<path d="M1005,590 L1005,564" fill="none" stroke="#16a34a" stroke-width="2" marker-end="url(#ag)"/>
+<rect x="290" y="700" width="920" height="130" rx="12" fill="#fff" stroke="#cbd5e1"/>
+<text x="305" y="722" font-size="13" font-weight="800" fill="#475569" text-anchor="start">공통 (운영 관점)</text>
+<rect x="305" y="735" width="210" height="80" rx="10" fill="#f8fafc" stroke="#475569" stroke-width="1.6"/>
+<text x="410.0" y="764.0" font-size="14.5" font-weight="700" fill="#0f172a" text-anchor="middle">모니터링 로그</text>
+<text x="410.0" y="783.0" font-size="12" font-weight="400" fill="#475569" text-anchor="middle">요청 단위 txId</text>
+<text x="410.0" y="799.0" font-size="12" font-weight="400" fill="#475569" text-anchor="middle">JSON Lines · 실패 원본 보관</text>
+<rect x="531" y="735" width="210" height="80" rx="10" fill="#f8fafc" stroke="#475569" stroke-width="1.6"/>
+<text x="636.0" y="764.0" font-size="14.5" font-weight="700" fill="#0f172a" text-anchor="middle">예외 분류 · 재시도</text>
+<text x="636.0" y="783.0" font-size="12" font-weight="400" fill="#475569" text-anchor="middle">ErrorCode → HTTP 상태</text>
+<text x="636.0" y="799.0" font-size="12" font-weight="400" fill="#475569" text-anchor="middle">연결 장애만 지수 백오프</text>
+<rect x="757" y="735" width="210" height="80" rx="10" fill="#f8fafc" stroke="#475569" stroke-width="1.6"/>
+<text x="862.0" y="764.0" font-size="14.5" font-weight="700" fill="#0f172a" text-anchor="middle">보상 · 멱등 처리</text>
+<text x="862.0" y="783.0" font-size="12" font-weight="400" fill="#475569" text-anchor="middle">COMMIT 실패 시 파일 삭제</text>
+<text x="862.0" y="799.0" font-size="12" font-weight="400" fill="#475569" text-anchor="middle">배치 건 단위 · 중복 방지</text>
+<rect x="983" y="735" width="210" height="80" rx="10" fill="#f8fafc" stroke="#475569" stroke-width="1.6"/>
+<text x="1088.0" y="764.0" font-size="14.5" font-weight="700" fill="#0f172a" text-anchor="middle">설정 · 보안</text>
+<text x="1088.0" y="783.0" font-size="12" font-weight="400" fill="#475569" text-anchor="middle">AES-128 복호화(init)</text>
+<text x="1088.0" y="799.0" font-size="12" font-weight="400" fill="#475569" text-anchor="middle">접속 정보 Git 제외</text>
+<rect x="40" y="235" width="190" height="74" rx="10" fill="#fff" stroke="#0f172a" stroke-width="1.6"/>
+<text x="135.0" y="269.0" font-size="14.5" font-weight="700" fill="#0f172a" text-anchor="middle">주문자</text>
+<text x="135.0" y="288.0" font-size="12" font-weight="400" fill="#475569" text-anchor="middle">REST Client</text>
+<text x="135" y="222" font-size="12" font-weight="600" fill="#2563eb" text-anchor="middle">① 주문 XML →</text>
+<text x="135" y="332" font-size="12" font-weight="600" fill="#2563eb" text-anchor="middle">← ④ 처리 결과 JSON</text>
+<path d="M230,255 L305,255" fill="none" stroke="#2563eb" stroke-width="2" marker-end="url(#ab)"/>
+<path d="M305,292 L230,292" fill="none" stroke="#2563eb" stroke-width="2" marker-end="url(#ab)"/>
+<rect x="1270" y="230" width="190" height="80" rx="10" fill="#fff" stroke="#0f172a" stroke-width="1.6"/>
+<text x="1365.0" y="259.0" font-size="14.5" font-weight="700" fill="#0f172a" text-anchor="middle">회계 영수증 관리자</text>
+<text x="1365.0" y="278.0" font-size="12" font-weight="400" fill="#475569" text-anchor="middle">FTP 서버</text>
+<text x="1365.0" y="294.0" font-size="12" font-weight="400" fill="#475569" text-anchor="middle">INSPIEN_이름_시각.txt</text>
+<rect x="1270" y="380" width="190" height="80" rx="10" fill="#fff" stroke="#0f172a" stroke-width="1.6"/>
+<text x="1365.0" y="417.0" font-size="14.5" font-weight="700" fill="#0f172a" text-anchor="middle">온라인 쇼핑몰</text>
+<text x="1365.0" y="436.0" font-size="12" font-weight="400" fill="#475569" text-anchor="middle">DB · ORDER_TB</text>
+<rect x="1270" y="560" width="190" height="80" rx="10" fill="#fff" stroke="#0f172a" stroke-width="1.6"/>
+<text x="1365.0" y="597.0" font-size="14.5" font-weight="700" fill="#0f172a" text-anchor="middle">운송회사</text>
+<text x="1365.0" y="616.0" font-size="12" font-weight="400" fill="#475569" text-anchor="middle">DB · SHIPMENT_TB</text>
+<path d="M1110,232 L1190,232 L1190,260 L1270,260" fill="none" stroke="#2563eb" stroke-width="2" marker-end="url(#ab)"/>
+<text x="1150" y="224" font-size="11.5" font-weight="500" fill="#2563eb" text-anchor="middle">③ FTP 전송</text>
+<path d="M1110,332 L1170,332 L1170,400 L1270,400" fill="none" stroke="#2563eb" stroke-width="2" marker-end="url(#ab)"/>
+<text x="1140" y="324" font-size="11.5" font-weight="500" fill="#2563eb" text-anchor="middle">② INSERT</text>
+<path d="M1270,440 L1150,440 L1150,480 L620,480 L620,500" fill="none" stroke="#16a34a" stroke-width="2" marker-end="url(#ag)" stroke-dasharray="5 4"/>
+<text x="1140" y="474" font-size="11.5" font-weight="500" fill="#16a34a" text-anchor="end">⑤ 미전송 조회</text>
+<path d="M1110,532 L1190,532 L1190,455 L1270,455" fill="none" stroke="#16a34a" stroke-width="2" marker-end="url(#ag)"/>
+<text x="1150" y="524" font-size="11.5" font-weight="500" fill="#16a34a" text-anchor="middle">⑦ UPDATE</text>
+<path d="M1110,622 L1190,622 L1190,600 L1270,600" fill="none" stroke="#16a34a" stroke-width="2" marker-end="url(#ag)"/>
+<text x="1150" y="614" font-size="11.5" font-weight="500" fill="#16a34a" text-anchor="middle">⑥ INSERT</text>
+<line x1="40" y1="790" x2="80" y2="790" stroke="#2563eb" stroke-width="2.5"/>
+<text x="88" y="795" font-size="12.5" font-weight="600" fill="#2563eb" text-anchor="start">시나리오 1 (실시간)</text>
+<line x1="40" y1="815" x2="80" y2="815" stroke="#16a34a" stroke-width="2.5"/>
+<text x="88" y="820" font-size="12.5" font-weight="600" fill="#16a34a" text-anchor="start">시나리오 2 (배치)</text>
+<line x1="40" y1="840" x2="80" y2="840" stroke="#16a34a" stroke-width="2" stroke-dasharray="5 4"/>
+<text x="88" y="845" font-size="12.5" font-weight="600" fill="#16a34a" text-anchor="start">조회(읽기)</text>
+</svg>
