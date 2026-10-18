@@ -127,6 +127,9 @@ public final class SelfTest {
 
         ConnectionInfo ci = new ConnectionInfo("order.db", Json.parseObject(json), null, "order.db");
         check("접속 정보로 JDBC URL 조립(포트로 MySQL 추정)", ci.jdbcUrl().startsWith("jdbc:mysql://db.example.com:3306/shop"));
+        check("FTP 호스트를 URL 키로 줄 때 host 인식", "10.0.0.1".equals(new ConnectionInfo("ftp", Map.of("URL", "10.0.0.1", "PORT", "21"), null, "ftp").host()));
+        check("ftp://host:port/path 형태 URL 에서 host 추출", "ftp.example.com".equals(new ConnectionInfo("ftp", Map.of("URL", "ftp://ftp.example.com:2121/a/"), null, "ftp").host()));
+        check("JDBC URL 은 host 로 쓰지 않음", new ConnectionInfo("db", Map.of("URL", "jdbc:oracle:thin:@h:1521:ORCL"), null, "db").host() == null);
 
         check("채번 A999 다음은 B000", IdGenerator.fromIndex(IdGenerator.toIndex("A999") + 1).equals("B000"));
         check("기존 [A113,B114,잘못된값] 다음은 B115", IdGenerator.fromIndex(IdGenerator.nextIndex(List.of("A113", "B114", "XX"))).equals("B115"));

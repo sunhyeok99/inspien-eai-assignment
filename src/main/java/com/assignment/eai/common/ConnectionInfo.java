@@ -48,7 +48,26 @@ public final class ConnectionInfo {
         return null;
     }
 
-    public String host() { return find("host", "hostname", "ip", "server", "address", "addr"); }
+    public String host() {
+        String host = find("host", "hostname", "ip", "server", "address", "addr");
+        return host != null ? host : hostFromUrl();
+    }
+
+    /** FTP 처럼 호스트를 URL 키로 주는 경우: "211.0.0.1", "ftp://host:21/path" 에서 host 만 꺼낸다 (JDBC URL 은 제외). */
+    private String hostFromUrl() {
+        String url = find("url");
+        if (url == null || url.startsWith("jdbc:")) {
+            return null;
+        }
+        String s = url.replaceFirst("^[A-Za-z][A-Za-z0-9+.-]*://", "");
+        s = s.substring(s.indexOf('@') + 1);
+        int end = s.length();
+        for (char c : new char[] {'/', ':'}) {
+            int i = s.indexOf(c);
+            if (i >= 0 && i < end) end = i;
+        }
+        return s.substring(0, end).isBlank() ? null : s.substring(0, end);
+    }
     public String user() { return find("user", "username", "userid", "id", "login", "account"); }
     public String password() { return find("password", "pw", "pwd", "pass", "passwd"); }
     public String database() { return find("database", "databasename", "db", "dbname", "sid", "servicename", "service", "schema"); }
