@@ -25,7 +25,7 @@ EAI 구조(**Sender → Mapper → Receiver**)로 구현했습니다.
 **필요 환경**: JDK 17 이상, Maven 3.8 이상 (자체 테스트는 python3 추가)
 
 > **JAVA_HOME 을 JDK 17 이상으로 설정하거나, Windows 에서는 `run.bat` 상단의 `JDK17` / `MVN` 경로를 자기 PC 에 맞게 수정해서 사용합니다.**
-> `run.bat build | init ... | check | server | send [xml] | batch | report` 형태로 아래 명령과 동일하게 동작합니다.
+> `run.bat build | init ... | check | server | send [xml] | batch | report | stats` 형태로 아래 명령과 동일하게 동작합니다.
 >
 > 정보 수신 API 인증서의 루트(DigiCert TLS RSA4096 Root G5)는 JDK 17.0.10 부터 기본 신뢰 목록에 포함됩니다.
 > 그 이전 JDK 에서 `init` 이 `PKIX path building failed` 로 실패하면 `-Djavax.net.ssl.trustStoreType=Windows-ROOT`
@@ -54,6 +54,7 @@ java -jar target/eai-assignment.jar send my-order.xml          # 임의 XML
 # 기타
 java -jar target/eai-assignment.jar batch                      # 배치 1회 즉시 실행
 java -jar target/eai-assignment.jar report                     # 내 지원자 키 기준 ORDER_TB / SHIPMENT_TB 조회
+java -jar target/eai-assignment.jar stats                      # 오늘 모니터링 로그 처리 현황 요약 (stats 20261018 처럼 날짜 지정 가능)
 ```
 
 - 모든 명령은 프로젝트 루트에서 실행합니다(`config/`, `logs/` 상대 경로).
@@ -193,6 +194,18 @@ src/main/java/com/assignment/eai
 grep '"status":"FAIL"' logs/monitor/monitor-$(date +%Y%m%d).log        # 오늘 실패 건
 grep '"status":"SKIP"' logs/monitor/monitor-$(date +%Y%m%d).log        # 제외된 ITEM
 grep 'IF_ORDER_001-20261018174035190-0002' logs/monitor/*.log            # 특정 요청 추적
+```
+
+`stats` 명령은 이 로그를 읽어 하루 처리 현황을 요약합니다. 시작 이력은 있는데 `END` 가 없는 txId 는 처리 중이거나 비정상 종료된 건이라 따로 표시합니다.
+
+```
+> run.bat stats
+모니터링 로그: logsmonitormonitor-20261018.log
+[IF_ORDER_001] 요청 2건: 성공 0 / 부분 1 / 실패 1 | 적재 63건, 제외 ITEM 7건
+               실패 코드: E100 1건
+[IF_SHIP_001]  배치 6회: 전송 63건 / 복구 0건 / 실패 0건 (대상 없음 5회, 배치 오류 0회)
+미종료 1건 (처리 중이거나 비정상 종료, 확인 필요)
+  - IF_SHIP_001-20261018211042725-0001
 ```
 
 ## 8. 테스트

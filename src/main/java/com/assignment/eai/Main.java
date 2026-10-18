@@ -6,6 +6,7 @@ import com.assignment.eai.common.AppLog;
 import com.assignment.eai.common.ConnectionInfo;
 import com.assignment.eai.common.EaiException;
 import com.assignment.eai.common.MonitorLog;
+import com.assignment.eai.common.MonitorStats;
 import com.assignment.eai.flow.OrderInterfaceFlow;
 import com.assignment.eai.flow.ShipmentBatchFlow;
 import com.assignment.eai.receiver.FtpReceiptReceiver;
@@ -26,7 +27,9 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.concurrent.CountDownLatch;
 
 /**
@@ -38,6 +41,7 @@ import java.util.concurrent.CountDownLatch;
  *  send  [xml파일] [url]                                         주문 요청 전송 (기본: 수신한 샘플 XML)
  *  batch                                                         배치 1회 즉시 실행 (시나리오 2)
  *  report                                                        내 지원자 키 기준 ORDER_TB / SHIPMENT_TB 조회
+ *  stats [yyyyMMdd]                                              모니터링 로그 처리 현황 요약 (기본: 오늘)
  * </pre>
  */
 public final class Main {
@@ -52,6 +56,7 @@ public final class Main {
                 case "send" -> send(args);
                 case "batch" -> batch();
                 case "report" -> report();
+                case "stats" -> stats(args);
                 default -> help();
             }
         } catch (EaiException e) {
@@ -73,6 +78,7 @@ public final class Main {
                   send [xml파일] [url]          주문 요청 전송 (기본: config/received/sample.xml)
                   batch                         운송사 전송 배치 1회 실행
                   report                        ORDER_TB / SHIPMENT_TB 조회 (내 지원자 키 기준)
+                  stats [yyyyMMdd]              모니터링 로그 처리 현황 요약 (기본: 오늘)
                 """);
     }
 
@@ -142,6 +148,18 @@ public final class Main {
     private static void batch() {
         AppConfig cfg = boot();
         System.out.println(shipmentFlow(cfg).run().summary());
+    }
+
+    private static void stats(String[] args) throws Exception {
+        AppConfig cfg = boot();
+        String day = args.length > 1 ? args[1] : LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE);
+        Path file = cfg.logDir().resolve("monitor").resolve("monitor-" + day + ".log");
+        if (!Files.exists(file)) {
+            System.out.println("모니터링 로그가 없습니다: " + file);
+            return;
+        }
+        System.out.println("모니터링 로그: " + file);
+        System.out.println(MonitorStats.of(Files.readAllLines(file, StandardCharsets.UTF_8)).render());
     }
 
     private static void report() throws Exception {

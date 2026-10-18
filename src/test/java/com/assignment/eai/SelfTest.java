@@ -8,6 +8,7 @@ import com.assignment.eai.common.ErrorCode;
 import com.assignment.eai.common.IdGenerator;
 import com.assignment.eai.common.Json;
 import com.assignment.eai.common.MonitorLog;
+import com.assignment.eai.common.MonitorStats;
 import com.assignment.eai.flow.OrderInterfaceFlow;
 import com.assignment.eai.flow.OrderResult;
 import com.assignment.eai.flow.ShipmentBatchFlow;
@@ -163,6 +164,29 @@ public final class SelfTest {
                 && Json.write(partialJson).contains("\"skippedItems\":[{\"userId\":\"USER9\",\"itemId\":\"ITEM2\",\"reason\":"));
         Map<String, Object> okJson = OrderResult.ok("TX2", List.of("A000"), "f.txt", List.of(), List.of()).toJson();
         check("제외 없으면 SUCCESS, skippedItems 없음", "SUCCESS".equals(okJson.get("result")) && !okJson.containsKey("skippedItems"));
+
+        MonitorStats stats = MonitorStats.of(List.of(
+                "{\"txId\":\"O1\",\"interfaceId\":\"IF_ORDER_001\",\"step\":\"RECEIVE\",\"status\":\"START\"}",
+                "{\"txId\":\"O1\",\"interfaceId\":\"IF_ORDER_001\",\"step\":\"VALIDATE\",\"status\":\"SKIP\",\"count\":1}",
+                "{\"txId\":\"O1\",\"interfaceId\":\"IF_ORDER_001\",\"step\":\"END\",\"status\":\"PARTIAL\",\"count\":63}",
+                "{\"txId\":\"O2\",\"interfaceId\":\"IF_ORDER_001\",\"step\":\"RECEIVE\",\"status\":\"START\"}",
+                "{\"txId\":\"O2\",\"interfaceId\":\"IF_ORDER_001\",\"step\":\"END\",\"status\":\"FAIL\",\"errorCode\":\"E100\"}",
+                "{\"txId\":\"S1\",\"interfaceId\":\"IF_SHIP_001\",\"step\":\"START\",\"status\":\"START\"}",
+                "{\"txId\":\"S1\",\"interfaceId\":\"IF_SHIP_001\",\"step\":\"SHIPMENT_INSERT\",\"status\":\"SUCCESS\",\"count\":1}",
+                "{\"txId\":\"S1\",\"interfaceId\":\"IF_SHIP_001\",\"step\":\"SHIPMENT_RECOVER\",\"status\":\"SUCCESS\",\"count\":1}",
+                "{\"txId\":\"S1\",\"interfaceId\":\"IF_SHIP_001\",\"step\":\"SHIPMENT_INSERT\",\"status\":\"FAIL\",\"count\":1}",
+                "{\"txId\":\"S1\",\"interfaceId\":\"IF_SHIP_001\",\"step\":\"END\",\"status\":\"PARTIAL\",\"count\":3}",
+                "{\"txId\":\"S2\",\"interfaceId\":\"IF_SHIP_001\",\"step\":\"START\",\"status\":\"START\"}",
+                "{\"txId\":\"S2\",\"interfaceId\":\"IF_SHIP_001\",\"step\":\"END\",\"status\":\"SKIP\",\"count\":0}",
+                "{\"txId\":\"S3\",\"interfaceId\":\"IF_SHIP_001\",\"step\":\"START\",\"status\":\"START\"}",
+                "깨진 줄"));
+        check("stats: 주문 요청 성공/부분/실패·적재·제외 집계", stats.orderRequests() == 2 && stats.orderCount("PARTIAL") == 1
+                && stats.orderCount("FAIL") == 1 && stats.ordersLoaded() == 63 && stats.itemsSkipped() == 1
+                && stats.orderFailCodes().equals(Map.of("E100", 1)));
+        check("stats: 배치 횟수·전송·복구·실패 집계", stats.batchRuns() == 2 && stats.batchCount("SKIP") == 1
+                && stats.shipSent() == 1 && stats.shipRecovered() == 1 && stats.shipFailed() == 1);
+        check("stats: END 없는 txId 는 미종료로 표시", stats.unfinished().equals(List.of("S3")));
+        check("stats: 깨진 줄은 건너뛰고 표시", stats.render().contains("해석하지 못한 줄 1건"));
         check("PRICE 숫자 아니면 거부", throwsCode(() -> validate(SAMPLE.replace("21000", "2만원")), ErrorCode.VALIDATION));
         check("값에 구분자 ^ 있으면 거부", throwsCode(() -> validate(SAMPLE.replace("청바지", "청^바지")), ErrorCode.VALIDATION));
         check("XML 형식 오류 거부", throwsCode(() -> validate("<HEADER><USER_ID>U</HEADER>"), ErrorCode.VALIDATION));
