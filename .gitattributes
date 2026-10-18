@@ -1,0 +1,2 @@
+# Windows 배치 파일은 CRLF 로 체크아웃 (LF 면 cmd 가 라벨/goto 를 잘못 해석할 수 있음)
+*.bat text eol=crlf
