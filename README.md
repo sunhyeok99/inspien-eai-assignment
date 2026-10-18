@@ -24,6 +24,13 @@ EAI 구조(**Sender → Mapper → Receiver**)로 구현했습니다.
 
 **필요 환경**: JDK 17 이상, Maven 3.8 이상 (자체 테스트는 python3 추가)
 
+> **JAVA_HOME 을 JDK 17 이상으로 설정하거나, Windows 에서는 `run.bat` 상단의 `JDK17` / `MVN` 경로를 자기 PC 에 맞게 수정해서 사용합니다.**
+> `run.bat build | init ... | check | server | send [xml] | batch | report` 형태로 아래 명령과 동일하게 동작합니다.
+>
+> 정보 수신 API 인증서의 루트(DigiCert TLS RSA4096 Root G5)는 JDK 17.0.10 부터 기본 신뢰 목록에 포함됩니다.
+> 그 이전 JDK 에서 `init` 이 `PKIX path building failed` 로 실패하면 `-Djavax.net.ssl.trustStoreType=Windows-ROOT`
+> (Windows 인증서 저장소 사용)를 붙여 실행하거나 JDK 를 업데이트합니다. `run.bat` 에는 이 옵션이 들어 있습니다.
+
 ```bash
 # 0) 정보 수신 API 접속 정보 준비 (Git 제외 파일)
 cp config/recruiting-api.example.properties config/recruiting-api.properties   # username / password 입력
