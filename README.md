@@ -81,7 +81,7 @@ HEADER 가 없는 ITEM 이 섞여 있으면 그 건만 제외하고 나머지를
  "skippedItems":[{"userId":"USER16","itemId":"ITEM64","reason":"USER_ID(USER16) 에 해당하는 HEADER 가 없습니다."}, "..."]}
 ```
 
-**시연용 조회 SQL** (참여자명·당일 기준)
+**시연용 조회 SQL** (참여자명·당일 기준) — 상태별 건수, 주문자별 합계, 배치 정합성 점검 쿼리는 [`docs/demo.sql`](docs/demo.sql)
 
 ```sql
 SELECT * FROM ORDER_TB    WHERE APPLICANT_KEY = '<지원자키>' ORDER BY ORDER_ID;
