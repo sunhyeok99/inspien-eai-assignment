@@ -110,7 +110,8 @@ public final class Main {
 
     private static void server() throws Exception {
         AppConfig cfg = boot();
-        RestOrderSender rest = new RestOrderSender(orderFlow(cfg), cfg.serverPort());
+        RestOrderSender rest = new RestOrderSender(orderFlow(cfg), cfg.serverPort(),
+                cfg.serverThreads(), cfg.serverMaxBodyBytes());
         ShipmentBatchScheduler scheduler = new ShipmentBatchScheduler(shipmentFlow(cfg),
                 cfg.batchInitialDelaySeconds(), cfg.batchIntervalSeconds());
         CountDownLatch stopped = new CountDownLatch(1);
@@ -171,12 +172,14 @@ public final class Main {
 
     private static OrderInterfaceFlow orderFlow(AppConfig cfg) {
         return new OrderInterfaceFlow(cfg.applicantKey(), cfg.applicantName(), cfg.receiptCharset(), jdbc(cfg),
-                cfg.orderDb(), new JdbcOrderReceiver(cfg.orderTable()), ftp(cfg), LocalDateTime::now);
+                cfg.orderDb(), new JdbcOrderReceiver(cfg.orderTable(), cfg.queryTimeoutSeconds()), ftp(cfg), LocalDateTime::now,
+                cfg.duplicateRetry());
     }
 
     private static ShipmentBatchFlow shipmentFlow(AppConfig cfg) {
         return new ShipmentBatchFlow(cfg.applicantKey(), jdbc(cfg), cfg.orderDb(), cfg.shipmentDb(),
-                new JdbcOrderReceiver(cfg.orderTable()), new JdbcShipmentReceiver(cfg.shipmentTable()));
+                new JdbcOrderReceiver(cfg.orderTable(), cfg.queryTimeoutSeconds()),
+                new JdbcShipmentReceiver(cfg.shipmentTable(), cfg.queryTimeoutSeconds()));
     }
 
     // ------------------------------------------------------------------ util

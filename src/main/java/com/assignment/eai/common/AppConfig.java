@@ -88,6 +88,8 @@ public final class AppConfig {
     public String applicantName() { return require("applicant.name"); }
 
     public int serverPort() { return getInt("server.port", 8080); }
+    public int serverThreads() { return getInt("server.threads", 4); }
+    public int serverMaxBodyBytes() { return getInt("server.max-body-kb", 5 * 1024) * 1024; }
     public int batchIntervalSeconds() { return getInt("batch.interval.seconds", 300); }
     public int batchInitialDelaySeconds() { return getInt("batch.initial-delay.seconds", 10); }
 
@@ -98,6 +100,8 @@ public final class AppConfig {
     public int retryMaxAttempts() { return getInt("retry.max-attempts", 3); }
     public long retryBackoffMs() { return getInt("retry.backoff-ms", 1000); }
     public int connectTimeoutSeconds() { return getInt("connect.timeout.seconds", 10); }
+    public int queryTimeoutSeconds() { return getInt("jdbc.query-timeout.seconds", 30); }
+    public int duplicateRetry() { return getInt("order.duplicate-retry", 3); }
 
     public boolean ftpUseControlHostForPassive() { return getBool("ftp.passive.use-control-host", true); }
 

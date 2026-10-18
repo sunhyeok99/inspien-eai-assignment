@@ -35,21 +35,30 @@ public final class RestOrderSender {
 
     private static final Logger log = AppLog.get(RestOrderSender.class);
     private static final Pattern CHARSET = Pattern.compile("charset\\s*=\\s*\"?([A-Za-z0-9_\\-]+)");
-    private static final int MAX_BODY_BYTES = 5 * 1024 * 1024;
+    public static final int DEFAULT_THREADS = 4;
+    public static final int DEFAULT_MAX_BODY_BYTES = 5 * 1024 * 1024;
 
     private final OrderInterfaceFlow flow;
     private final int port;
+    private final int threads;
+    private final int maxBodyBytes;
     private HttpServer server;
     private ExecutorService executor;
 
     public RestOrderSender(OrderInterfaceFlow flow, int port) {
+        this(flow, port, DEFAULT_THREADS, DEFAULT_MAX_BODY_BYTES);
+    }
+
+    public RestOrderSender(OrderInterfaceFlow flow, int port, int threads, int maxBodyBytes) {
         this.flow = flow;
         this.port = port;
+        this.threads = threads;
+        this.maxBodyBytes = maxBodyBytes;
     }
 
     public void start() throws IOException {
         server = HttpServer.create(new InetSocketAddress(port), 0);
-        executor = Executors.newFixedThreadPool(4);
+        executor = Executors.newFixedThreadPool(threads);
         server.setExecutor(executor);
         server.createContext("/api/orders", this::handleOrder);
         server.createContext("/health", ex -> respond(ex, 200, Map.of("status", "UP")));
@@ -79,7 +88,7 @@ public final class RestOrderSender {
             }
             byte[] body = readBody(ex.getRequestBody());
             if (body == null) {
-                respond(ex, 413, error("요청 크기 초과(최대 5MB)"));
+                respond(ex, 413, error("요청 크기 초과(최대 " + maxBodyBytes / 1024 + "KB)"));
                 return;
             }
             OrderResult result = flow.process(body, charsetOf(contentType));
@@ -90,9 +99,9 @@ public final class RestOrderSender {
         }
     }
 
-    private static byte[] readBody(InputStream in) throws IOException {
-        byte[] body = in.readNBytes(MAX_BODY_BYTES + 1);
-        return body.length > MAX_BODY_BYTES ? null : body;
+    private byte[] readBody(InputStream in) throws IOException {
+        byte[] body = in.readNBytes(maxBodyBytes + 1);
+        return body.length > maxBodyBytes ? null : body;
     }
 
     private static String charsetOf(String contentType) {

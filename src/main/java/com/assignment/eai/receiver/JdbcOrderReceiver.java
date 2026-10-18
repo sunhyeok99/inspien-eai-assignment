@@ -18,16 +18,22 @@ import java.util.List;
 public final class JdbcOrderReceiver {
 
     private final String table;
+    private final int queryTimeoutSeconds;
 
     public JdbcOrderReceiver(String table) {
+        this(table, JdbcSupport.DEFAULT_QUERY_TIMEOUT_SECONDS);
+    }
+
+    public JdbcOrderReceiver(String table, int queryTimeoutSeconds) {
         this.table = table;
+        this.queryTimeoutSeconds = queryTimeoutSeconds;
     }
 
     /** 채번용: 내 지원자 키로 사용 중인 ORDER_ID 전체 */
     public List<String> findOrderIds(Connection c, String applicantKey) {
         String sql = "SELECT ORDER_ID FROM " + table + " WHERE APPLICANT_KEY = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setQueryTimeout(JdbcSupport.QUERY_TIMEOUT_SECONDS);
+            ps.setQueryTimeout(queryTimeoutSeconds);
             ps.setString(1, applicantKey);
             List<String> ids = new ArrayList<>();
             try (ResultSet rs = ps.executeQuery()) {
@@ -47,7 +53,7 @@ public final class JdbcOrderReceiver {
                 + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
         int count = 0;
         try (PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setQueryTimeout(JdbcSupport.QUERY_TIMEOUT_SECONDS);
+            ps.setQueryTimeout(queryTimeoutSeconds);
             for (OrderRecord r : records) {
                 ps.setString(1, r.orderId());
                 ps.setString(2, r.applicantKey());
@@ -71,7 +77,7 @@ public final class JdbcOrderReceiver {
         String sql = "SELECT ORDER_ID, ITEM_ID, ADDRESS FROM " + table
                 + " WHERE APPLICANT_KEY = ? AND TRIM(STATUS) = 'N' ORDER BY ORDER_ID";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setQueryTimeout(JdbcSupport.QUERY_TIMEOUT_SECONDS);
+            ps.setQueryTimeout(queryTimeoutSeconds);
             ps.setString(1, applicantKey);
             List<PendingOrder> list = new ArrayList<>();
             try (ResultSet rs = ps.executeQuery()) {
@@ -89,7 +95,7 @@ public final class JdbcOrderReceiver {
     public int markSent(Connection c, String applicantKey, String orderId) {
         String sql = "UPDATE " + table + " SET STATUS = 'Y' WHERE APPLICANT_KEY = ? AND ORDER_ID = ? AND TRIM(STATUS) = 'N'";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setQueryTimeout(JdbcSupport.QUERY_TIMEOUT_SECONDS);
+            ps.setQueryTimeout(queryTimeoutSeconds);
             ps.setString(1, applicantKey);
             ps.setString(2, orderId);
             return ps.executeUpdate();

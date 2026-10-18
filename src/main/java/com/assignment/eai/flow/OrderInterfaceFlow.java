@@ -52,7 +52,7 @@ public final class OrderInterfaceFlow {
 
     private static final Logger log = AppLog.get(OrderInterfaceFlow.class);
     private static final String IF = OrderResult.INTERFACE_ID;
-    private static final int DUPLICATE_RETRY = 3;
+    public static final int DEFAULT_DUPLICATE_RETRY = 3;
 
     private final String applicantKey;
     private final String participantName;
@@ -62,6 +62,7 @@ public final class OrderInterfaceFlow {
     private final JdbcOrderReceiver orderReceiver;
     private final FtpReceiptReceiver ftpReceiver;
     private final Supplier<LocalDateTime> clock;
+    private final int duplicateRetry;
 
     private final OrderXmlParser parser = new OrderXmlParser();
     private final OrderValidator validator = new OrderValidator();
@@ -73,6 +74,13 @@ public final class OrderInterfaceFlow {
     public OrderInterfaceFlow(String applicantKey, String participantName, Charset receiptCharset, JdbcSupport jdbc,
                               ConnectionInfo orderDb, JdbcOrderReceiver orderReceiver, FtpReceiptReceiver ftpReceiver,
                               Supplier<LocalDateTime> clock) {
+        this(applicantKey, participantName, receiptCharset, jdbc, orderDb, orderReceiver, ftpReceiver, clock,
+                DEFAULT_DUPLICATE_RETRY);
+    }
+
+    public OrderInterfaceFlow(String applicantKey, String participantName, Charset receiptCharset, JdbcSupport jdbc,
+                              ConnectionInfo orderDb, JdbcOrderReceiver orderReceiver, FtpReceiptReceiver ftpReceiver,
+                              Supplier<LocalDateTime> clock, int duplicateRetry) {
         this.applicantKey = applicantKey;
         this.participantName = participantName;
         this.receiptCharset = receiptCharset;
@@ -81,6 +89,7 @@ public final class OrderInterfaceFlow {
         this.orderReceiver = orderReceiver;
         this.ftpReceiver = ftpReceiver;
         this.clock = clock;
+        this.duplicateRetry = duplicateRetry;
     }
 
     public OrderResult process(byte[] body, String contentTypeCharset) {
@@ -159,7 +168,7 @@ public final class OrderInterfaceFlow {
             } catch (RuntimeException ex) {
                 JdbcSupport.rollbackQuietly(c);
                 EaiException e = EaiException.wrap(ex);
-                if (e.errorCode() == ErrorCode.JDBC_DUPLICATE && attempt < DUPLICATE_RETRY) {
+                if (e.errorCode() == ErrorCode.JDBC_DUPLICATE && attempt < duplicateRetry) {
                     log.warning("ORDER_ID 중복, ID 재계산 후 재시도(" + attempt + "): " + e.getMessage());
                     continue;
                 }

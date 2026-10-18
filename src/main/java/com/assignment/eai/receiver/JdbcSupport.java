@@ -18,7 +18,7 @@ import java.util.logging.Logger;
 public final class JdbcSupport {
 
     private static final Logger log = AppLog.get(JdbcSupport.class);
-    public static final int QUERY_TIMEOUT_SECONDS = 30;
+    public static final int DEFAULT_QUERY_TIMEOUT_SECONDS = 30;
 
     private final int maxAttempts;
     private final long backoffMs;

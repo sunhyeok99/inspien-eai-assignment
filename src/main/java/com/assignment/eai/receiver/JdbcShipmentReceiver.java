@@ -14,15 +14,21 @@ import java.util.Optional;
 public final class JdbcShipmentReceiver {
 
     private final String table;
+    private final int queryTimeoutSeconds;
 
     public JdbcShipmentReceiver(String table) {
+        this(table, JdbcSupport.DEFAULT_QUERY_TIMEOUT_SECONDS);
+    }
+
+    public JdbcShipmentReceiver(String table, int queryTimeoutSeconds) {
         this.table = table;
+        this.queryTimeoutSeconds = queryTimeoutSeconds;
     }
 
     public List<String> findShipmentIds(Connection c, String applicantKey) {
         String sql = "SELECT SHIPMENT_ID FROM " + table + " WHERE APPLICANT_KEY = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setQueryTimeout(JdbcSupport.QUERY_TIMEOUT_SECONDS);
+            ps.setQueryTimeout(queryTimeoutSeconds);
             ps.setString(1, applicantKey);
             List<String> ids = new ArrayList<>();
             try (ResultSet rs = ps.executeQuery()) {
@@ -43,7 +49,7 @@ public final class JdbcShipmentReceiver {
     public Optional<String> findShipmentIdByOrder(Connection c, String applicantKey, String orderId) {
         String sql = "SELECT SHIPMENT_ID FROM " + table + " WHERE APPLICANT_KEY = ? AND ORDER_ID = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setQueryTimeout(JdbcSupport.QUERY_TIMEOUT_SECONDS);
+            ps.setQueryTimeout(queryTimeoutSeconds);
             ps.setString(1, applicantKey);
             ps.setString(2, orderId);
             try (ResultSet rs = ps.executeQuery()) {
@@ -57,7 +63,7 @@ public final class JdbcShipmentReceiver {
     public void insert(Connection c, ShipmentRecord r) {
         String sql = "INSERT INTO " + table + " (SHIPMENT_ID, APPLICANT_KEY, ORDER_ID, ITEM_ID, ADDRESS) VALUES (?, ?, ?, ?, ?)";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setQueryTimeout(JdbcSupport.QUERY_TIMEOUT_SECONDS);
+            ps.setQueryTimeout(queryTimeoutSeconds);
             ps.setString(1, r.shipmentId());
             ps.setString(2, r.applicantKey());
             ps.setString(3, r.orderId());
