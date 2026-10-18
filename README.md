@@ -67,18 +67,16 @@ java -jar target/eai-assignment.jar report                     # 내 지원자 �
 curl -X POST http://localhost:8080/api/orders -H "Content-Type: application/xml; charset=UTF-8" --data-binary @config/received/sample.xml
 ```
 
-```json
-{"interfaceId":"IF_ORDER_001","txId":"IF_ORDER_001-20261013014138729-0017","result":"SUCCESS","code":"S000",
- "message":"주문 2건 적재 및 영수증 전송 완료","orderCount":2,"orderIds":["A000","A001"],"receiptFile":"INSPIEN_홍길동_20261013014138.txt"}
-```
-
-HEADER 가 없는 ITEM 이 섞여 있으면 그 건만 제외하고 나머지를 처리합니다 (HTTP 200, `result` = `PARTIAL`).
+실제 수신한 샘플(HEADER 15건, ITEM 70건)을 보낸 결과입니다. HEADER 가 없는 ITEM 7건은 제외하고 63건을 처리했습니다 (HTTP 200, `result` = `PARTIAL`).
+모든 ITEM 이 정상이면 `result` = `SUCCESS`, `code` = `S000` 이고 `skippedItems` 가 없습니다. (`orderIds`, `skippedItems` 는 일부 생략)
 
 ```json
-{"interfaceId":"IF_ORDER_001","txId":"...","result":"PARTIAL","code":"S001",
- "message":"주문 63건 적재 및 영수증 전송 완료, HEADER 없는 ITEM 7건 제외","orderCount":63,"orderIds":["A000","..."],
- "receiptFile":"INSPIEN_홍길동_20261018173000.txt","skippedCount":7,
- "skippedItems":[{"userId":"USER16","itemId":"ITEM64","reason":"USER_ID(USER16) 에 해당하는 HEADER 가 없습니다."}, "..."]}
+{"interfaceId":"IF_ORDER_001","txId":"IF_ORDER_001-20261018174035190-0002","result":"PARTIAL","code":"S001",
+ "message":"주문 63건 적재 및 영수증 전송 완료, HEADER 없는 ITEM 7건 제외","orderCount":63,
+ "orderIds":["A000","A001","A002", ... ,"A062"],"receiptFile":"INSPIEN_김선혁_20261018174035.txt","skippedCount":7,
+ "skippedItems":[{"userId":"USER16","itemId":"ITEM64","reason":"USER_ID(USER16) 에 해당하는 HEADER 가 없습니다."},
+                 {"userId":"USER17","itemId":"ITEM65","reason":"USER_ID(USER17) 에 해당하는 HEADER 가 없습니다."}, ...],
+ "warnings":["USER_ID(USER14) HEADER 에 ITEM 이 없어 적재 대상에서 제외됩니다.", ...]}
 ```
 
 **시연용 조회 SQL** (참여자명·당일 기준) — 상태별 건수, 주문자별 합계, 배치 정합성 점검 쿼리는 [`docs/demo.sql`](docs/demo.sql)
@@ -171,14 +169,30 @@ src/main/java/com/assignment/eai
 - `logs/error-payload/{txId}.xml` — 실패한 원본 메시지 (원인 분석·재처리: `send logs/error-payload/<txId>.xml`)
 - `logs/app.0.log` — 개발자용 상세 로그 (스택 트레이스 포함)
 
+실제 실행 로그입니다. 시나리오 1 한 요청이 수신 → 검증(제외 건 SKIP) → DB INSERT → FTP 전송 → COMMIT 순서로 같은 `txId` 로 묶여 있습니다. (ID 목록과 SKIP 일부 생략)
+
 ```json
-{"time":"2026-10-13 01:41:32.810","txId":"IF_ORDER_001-20261013014132804-0001","interfaceId":"IF_ORDER_001","step":"RECEIVE","status":"START","message":"요청 수신 592 bytes"}
-{"time":"2026-10-13 01:41:33.123","txId":"IF_ORDER_001-20261013014133086-0003","interfaceId":"IF_ORDER_001","step":"LOAD","status":"FAIL","errorCode":"E420","message":"FTP 예상치 못한 응답: 451 local error in processing"}
+{"time":"2026-10-18 17:40:35.191","txId":"IF_ORDER_001-20261018174035190-0002","interfaceId":"IF_ORDER_001","step":"RECEIVE","status":"START","message":"요청 수신 11928 bytes"}
+{"time":"2026-10-18 17:40:35.227","txId":"IF_ORDER_001-20261018174035190-0002","interfaceId":"IF_ORDER_001","step":"VALIDATE","status":"SUCCESS","count":63,"message":"HEADER 15건 / ITEM 63건 (제외 7건)"}
+{"time":"2026-10-18 17:40:35.231","txId":"IF_ORDER_001-20261018174035190-0002","interfaceId":"IF_ORDER_001","step":"VALIDATE","status":"SKIP","count":1,"message":"USER16/ITEM64 USER_ID(USER16) 에 해당하는 HEADER 가 없습니다."}
+{"time":"2026-10-18 17:40:35.807","txId":"IF_ORDER_001-20261018174035190-0002","interfaceId":"IF_ORDER_001","step":"JDBC_ORDER","status":"SUCCESS","count":63,"message":"INSERT(미커밋) [A000, A001, ... , A062]"}
+{"time":"2026-10-18 17:40:38.602","txId":"IF_ORDER_001-20261018174035190-0002","interfaceId":"IF_ORDER_001","step":"FTP_RECEIPT","status":"SUCCESS","count":63,"message":"INSPIEN_김선혁_20261018174035.txt"}
+{"time":"2026-10-18 17:40:38.624","txId":"IF_ORDER_001-20261018174035190-0002","interfaceId":"IF_ORDER_001","step":"JDBC_COMMIT","status":"SUCCESS","count":63}
+{"time":"2026-10-18 17:40:38.639","txId":"IF_ORDER_001-20261018174035190-0002","interfaceId":"IF_ORDER_001","step":"END","status":"PARTIAL","count":63,"elapsedMs":3449,"message":"주문 63건 적재 및 영수증 전송 완료, HEADER 없는 ITEM 7건 제외 [A000, ... , A062]"}
+```
+
+시나리오 2 배치는 건마다 `SHIPMENT_INSERT` 를 남기고, 마지막 `END` 에 집계를 남깁니다.
+
+```json
+{"time":"2026-10-18 17:40:49.607","txId":"IF_SHIP_001-20261018174049589-0001","interfaceId":"IF_SHIP_001","step":"START","status":"START","message":"배치 시작"}
+{"time":"2026-10-18 17:40:50.642","txId":"IF_SHIP_001-20261018174049589-0001","interfaceId":"IF_SHIP_001","step":"BATCH_SELECT","status":"SUCCESS","count":63,"message":"미전송 주문 조회"}
+{"time":"2026-10-18 17:40:54.843","txId":"IF_SHIP_001-20261018174049589-0001","interfaceId":"IF_SHIP_001","step":"END","status":"SUCCESS","count":63,"elapsedMs":5220,"message":"대상 63건 / 전송 63건 / 복구 0건 / 실패 0건"}
 ```
 
 ```bash
-grep '"status":"FAIL"' logs/monitor/monitor-$(date +%Y%m%d).log      # 오늘 실패 건
-grep 'IF_ORDER_001-20261013014133086-0003' logs/monitor/*.log           # 특정 요청 추적
+grep '"status":"FAIL"' logs/monitor/monitor-$(date +%Y%m%d).log        # 오늘 실패 건
+grep '"status":"SKIP"' logs/monitor/monitor-$(date +%Y%m%d).log        # 제외된 ITEM
+grep 'IF_ORDER_001-20261018174035190-0002' logs/monitor/*.log            # 특정 요청 추적
 ```
 
 ## 8. 테스트
