@@ -11,7 +11,7 @@ EAI 구조(**Sender → Mapper → Receiver**)로 구현했습니다.
 |---|---|---|
 | 4.1 정보 수신·복호화 | `bootstrap/ApplicantInfoClient`, `common/AesDecryptor` | Basic Auth 호출, AES-128/ECB/PKCS5 (키 = SHA-1(전화번호) 앞 16byte), SAMPLE_DATA Base64 → EUC-KR 복원 |
 | 3.1 (1) 주문 API (REST Sender) | `sender/RestOrderSender` | `POST /api/orders` XML 수신, 처리 결과 JSON 동기 응답 |
-| 3.1 유효성 검증 | `mapper/OrderXmlParser`, `mapper/OrderValidator` | 필수값, PRICE 숫자, HEADER-ITEM 연결, 구분자 포함 여부, XXE 차단 |
+| 3.1 유효성 검증 | `mapper/OrderXmlParser`, `mapper/OrderValidator` | 필수값, PRICE 숫자, 구분자 포함 여부, XXE 차단(위반 시 전체 거부) / HEADER 없는 ITEM 은 해당 건만 제외(PARTIAL) |
 | 3.1 (2.1) 플랫 매핑·ORDER_TB 적재 | `mapper/OrderMapper`, `receiver/JdbcOrderReceiver` | HEADER 1:N ITEM → ITEM 1건당 1행, ORDER_ID 채번, APPLICANT_KEY 고정 |
 | 3.1 (2.2) 파일 생성·FTP 전송 | `mapper/ReceiptFileMapper`, `receiver/FtpReceiptReceiver` | `INSPIEN_참여자명_yyyyMMddHHmmss.txt`, 필드·순서 고정, 업로드 후 SIZE 검증 |
 | 3.1 (3) JDBC·FTP 동기화 | `flow/OrderInterfaceFlow` | INSERT(미커밋) → FTP → COMMIT, 실패 시 ROLLBACK / 보상 삭제 |
@@ -63,6 +63,15 @@ curl -X POST http://localhost:8080/api/orders -H "Content-Type: application/xml;
 ```json
 {"interfaceId":"IF_ORDER_001","txId":"IF_ORDER_001-20261013014138729-0017","result":"SUCCESS","code":"S000",
  "message":"주문 2건 적재 및 영수증 전송 완료","orderCount":2,"orderIds":["A000","A001"],"receiptFile":"INSPIEN_홍길동_20261013014138.txt"}
+```
+
+HEADER 가 없는 ITEM 이 섞여 있으면 그 건만 제외하고 나머지를 처리합니다 (HTTP 200, `result` = `PARTIAL`).
+
+```json
+{"interfaceId":"IF_ORDER_001","txId":"...","result":"PARTIAL","code":"S001",
+ "message":"주문 63건 적재 및 영수증 전송 완료, HEADER 없는 ITEM 7건 제외","orderCount":63,"orderIds":["A000","..."],
+ "receiptFile":"INSPIEN_홍길동_20261018173000.txt","skippedCount":7,
+ "skippedItems":[{"userId":"USER16","itemId":"ITEM64","reason":"USER_ID(USER16) 에 해당하는 HEADER 가 없습니다."}, "..."]}
 ```
 
 **시연용 조회 SQL** (참여자명·당일 기준)
@@ -128,12 +137,19 @@ src/main/java/com/assignment/eai
 7. **입력 정제** — 예시 XML 의 `<STATUS>` 안 줄바꿈/공백을 trim 합니다. 루트 없이 나열된 XML 도 받을 수 있게 가상 루트로 감쌉니다. 값에 `^`·줄바꿈이 있으면 파일 포맷이 깨지므로 거부합니다.
 8. **파일명 충돌 방지** — 파일명이 초 단위라 같은 초에 두 요청이 오면 덮어쓰게 되므로, 직전 파일명과 같으면 다음 초까지 기다립니다.
 9. **보안** — 정보 수신 계정, 복호화한 접속 정보, 지원자 키는 모두 Git 제외 파일(`config/*.properties`, `config/conn/`)에만 저장하고, 로그에서 비밀번호는 마스킹합니다.
+10. **검증 규칙: 전체 거부 vs 건 단위 제외** — 실제 수신한 샘플 데이터에 HEADER 가 없는 ITEM(USER16~22, 7건)이 섞여 있었습니다.
+    - *메시지 자체가 잘못된 경우*(XML 형식 오류, 필수값 누락, PRICE 형식 오류, 구분자 포함)는 송신 측 오류이므로 지금처럼 **전체 거부(400, E100)** 합니다. 일부만 넣으면 주문자가 어디까지 반영됐는지 알기 어렵기 때문입니다.
+    - *HEADER 가 없는 ITEM* 은 메시지는 정상이고 특정 건만 주문자 정보(NAME/ADDRESS)를 채울 수 없는 경우라, 그 ITEM 만 제외하고 나머지는 처리합니다. 한 건 때문에 정상 주문 전체를 막지 않기 위해서입니다.
+    - 제외 건은 **ORDER_ID 를 채번하지 않고**(ID 공백 방지), 응답에 `result: PARTIAL` + 제외 건수·목록(USER_ID, ITEM_ID, 사유)을 담아 HTTP 200 으로 돌려줍니다. 성공(SUCCESS)과 구분되므로 송신 측이 제외 건을 알 수 있습니다.
+    - 운영 추적을 위해 제외 건마다 모니터 로그에 `SKIP` 을 남기고, 원본 XML 은 `logs/error-payload/{txId}.xml` 에 보관합니다. HEADER 를 보완한 뒤 `send` 로 재처리할 수 있습니다.
+    - 제외하고 나면 남는 ITEM 이 없으면 전체 거부합니다.
 
 ## 6. 예외 처리
 
 | 코드 | 상황 | 재시도 | HTTP | 처리 |
 |---|---|---|---|---|
-| E100 | XML 형식·필수값·형식 오류 | X | 400 | 전체 거부, 원본 보관 |
+| S001 | HEADER 없는 ITEM 포함 | X | 200 | 해당 ITEM 만 제외(PARTIAL), 모니터 로그 SKIP, 원본 보관 |
+| E100 | XML 형식·필수값·형식 오류, 처리 가능한 ITEM 없음 | X | 400 | 전체 거부, 원본 보관 |
 | E300 | DB 연결 실패/끊김 | O (지수 백오프) | 503 | ROLLBACK / 배치는 남은 건 다음 주기로 |
 | E310 | SQL 오류 | X | 500 | ROLLBACK |
 | E320 | PK 중복 | O (ID 재계산) | 500 | 재채번 후 재시도 |
@@ -165,7 +181,7 @@ grep 'IF_ORDER_001-20261013014133086-0003' logs/monitor/*.log           # 특정
 ```
 
 인메모리 가짜 JDBC 드라이버(`src/test/java/.../FakeJdbc`)와 Python 최소 FTP 서버(`src/test/resources/mini_ftp_server.py`)로
-시나리오 1·2 의 정상·장애 케이스 47개를 검증합니다. FTP 실패 시 롤백, COMMIT 실패 시 보상 삭제, DB 연결 실패, 동시 요청 채번,
+시나리오 1·2 의 정상·장애 케이스를 검증합니다. HEADER 없는 ITEM 제외(PARTIAL), FTP 실패 시 롤백, COMMIT 실패 시 보상 삭제, DB 연결 실패, 동시 요청 채번,
 배치 멱등성, 다른 지원자 데이터 격리, EUC-KR 요청 같은 케이스가 포함됩니다.
 
 ## 9. 한계와 개선 방향

@@ -5,6 +5,7 @@ import com.assignment.eai.common.ErrorCode;
 import com.assignment.eai.model.OrderHeader;
 import com.assignment.eai.model.OrderItem;
 import com.assignment.eai.model.OrderMessage;
+import com.assignment.eai.model.SkippedItem;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -13,17 +14,30 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
- * 주문 요청 유효성 검증. 하나라도 위반하면 전체 메시지를 거부한다(부분 적재 방지).
- * 오류는 한 번에 모두 모아 반환해 주문자가 한 번에 수정할 수 있게 한다.
+ * 주문 요청 유효성 검증.
+ * <ul>
+ *   <li>XML 형식·필수값·PRICE 형식·구분자 오류 → 하나라도 있으면 전체 메시지 거부(E100). 오류는 한 번에 모두 모아 반환</li>
+ *   <li>HEADER 가 없는 ITEM → 해당 ITEM 만 제외하고 나머지는 계속 처리 (NAME/ADDRESS 를 채울 수 없어 적재 불가)</li>
+ *   <li>제외 후 남는 ITEM 이 없으면 전체 거부</li>
+ * </ul>
  */
 public final class OrderValidator {
 
     private static final Pattern PRICE = Pattern.compile("^\\d{1,15}$");
 
-    /** @return 경고 목록 (처리는 계속) */
-    public List<String> validate(OrderMessage msg) {
+    /**
+     * @param accepted 제외 건을 뺀 처리 대상 메시지
+     * @param skipped  제외된 ITEM (HEADER 없음)
+     * @param warnings 경고 (처리는 계속)
+     */
+    public record Result(OrderMessage accepted, List<SkippedItem> skipped, List<String> warnings) {
+    }
+
+    public Result validate(OrderMessage msg) {
         List<String> errors = new ArrayList<>();
         List<String> warnings = new ArrayList<>();
+        List<OrderItem> acceptedItems = new ArrayList<>();
+        List<SkippedItem> skipped = new ArrayList<>();
 
         if (msg.headers().isEmpty()) errors.add("HEADER 가 없습니다.");
         if (msg.items().isEmpty()) errors.add("ITEM 이 없습니다.");
@@ -59,8 +73,10 @@ public final class OrderValidator {
             }
             if (it.userId() != null && !it.userId().isEmpty()) {
                 if (!headerUsers.contains(it.userId())) {
-                    errors.add(at + " USER_ID(" + it.userId() + ") 에 해당하는 HEADER 가 없습니다.");
+                    skipped.add(new SkippedItem(it.userId(), it.itemId(), "USER_ID(" + it.userId() + ") 에 해당하는 HEADER 가 없습니다."));
+                    continue;
                 }
+                acceptedItems.add(it);
                 usersWithItem.add(it.userId());
                 if (!userItemPairs.add(it.userId() + "|" + it.itemId())) {
                     warnings.add(at + " 같은 주문자의 동일 상품이 중복 요청되었습니다: " + it.userId() + "/" + it.itemId());
@@ -73,10 +89,13 @@ public final class OrderValidator {
             }
         }
 
+        if (errors.isEmpty() && !msg.items().isEmpty() && acceptedItems.isEmpty()) {
+            errors.add("HEADER 와 연결되는 ITEM 이 없습니다 (제외 " + skipped.size() + "건).");
+        }
         if (!errors.isEmpty()) {
             throw new EaiException(ErrorCode.VALIDATION, String.join(" / ", errors));
         }
-        return warnings;
+        return new Result(new OrderMessage(msg.headers(), List.copyOf(acceptedItems)), List.copyOf(skipped), warnings);
     }
 
     private static void required(List<String> errors, String at, String field, String value) {

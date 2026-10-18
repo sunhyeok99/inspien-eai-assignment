@@ -15,11 +15,13 @@ import com.assignment.eai.mapper.ReceiptFileMapper;
 import com.assignment.eai.model.OrderMessage;
 import com.assignment.eai.model.OrderRecord;
 import com.assignment.eai.model.ReceiptFile;
+import com.assignment.eai.model.SkippedItem;
 import com.assignment.eai.receiver.FtpReceiptReceiver;
 import com.assignment.eai.receiver.JdbcOrderReceiver;
 import com.assignment.eai.receiver.JdbcSupport;
 
 import java.nio.charset.Charset;
+import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
@@ -32,7 +34,7 @@ import java.util.logging.Logger;
 /**
  * 시나리오 1 - 주문 발생 실시간 처리 (IF_ORDER_001, 동기)
  * <pre>
- *  [REST Sender] → 파싱 → 검증 → (매핑: 채번 + 플랫 구조) → [JDBC Receiver] INSERT (미커밋)
+ *  [REST Sender] → 파싱 → 검증(HEADER 없는 ITEM 은 제외) → (매핑: 채번 + 플랫 구조) → [JDBC Receiver] INSERT (미커밋)
  *                                                       → [FTP Receiver] 영수증 업로드
  *                                                       → COMMIT → 주문자에게 성공 응답
  * </pre>
@@ -89,17 +91,27 @@ public final class OrderInterfaceFlow {
             MonitorLog.step(IF, step, Status.START, null, "요청 수신 " + body.length + " bytes");
 
             step = "VALIDATE";
-            OrderMessage msg = parser.parse(body, contentTypeCharset);
-            List<String> warnings = validator.validate(msg);
+            OrderValidator.Result validated = validator.validate(parser.parse(body, contentTypeCharset));
+            OrderMessage msg = validated.accepted();
+            List<SkippedItem> skipped = validated.skipped();
             MonitorLog.step(IF, step, Status.SUCCESS, msg.items().size(),
-                    "HEADER " + msg.headers().size() + "건 / ITEM " + msg.items().size() + "건");
-            warnings.forEach(w -> log.warning(w));
+                    "HEADER " + msg.headers().size() + "건 / ITEM " + msg.items().size() + "건"
+                            + (skipped.isEmpty() ? "" : " (제외 " + skipped.size() + "건)"));
+            validated.warnings().forEach(w -> log.warning(w));
+            if (!skipped.isEmpty()) {
+                // 제외 건은 채번·적재하지 않고 이력과 원본만 남긴다 (원인 확인 후 send 로 재처리)
+                for (SkippedItem s : skipped) {
+                    MonitorLog.step(IF, step, Status.SKIP, 1, s.userId() + "/" + s.itemId() + " " + s.reason());
+                }
+                Path saved = MonitorLog.savePayload(body, "xml");
+                log.warning("HEADER 없는 ITEM " + skipped.size() + "건 제외, 원본 보관: " + saved);
+            }
 
             step = "LOAD";
             lock.lock();
             try {
-                OrderResult result = loadAndSend(msg, txId, warnings);
-                MonitorLog.write(IF, "END", Status.SUCCESS, result.orderIds().size(),
+                OrderResult result = loadAndSend(msg, txId, validated.warnings(), skipped);
+                MonitorLog.write(IF, "END", result.partial() ? Status.PARTIAL : Status.SUCCESS, result.orderIds().size(),
                         System.currentTimeMillis() - start, result.message() + " " + result.orderIds(), null);
                 log.info("처리 완료 " + result.orderIds() + " / " + result.fileName());
                 return result;
@@ -120,7 +132,7 @@ public final class OrderInterfaceFlow {
         }
     }
 
-    private OrderResult loadAndSend(OrderMessage msg, String txId, List<String> warnings) {
+    private OrderResult loadAndSend(OrderMessage msg, String txId, List<String> warnings, List<SkippedItem> skipped) {
         for (int attempt = 1; ; attempt++) {
             Connection c = jdbc.open(orderDb);
             try {
@@ -143,7 +155,7 @@ public final class OrderInterfaceFlow {
                 // 둘 다 성공 → COMMIT
                 commitOrCompensate(c, file);
                 MonitorLog.step(IF, "JDBC_COMMIT", Status.SUCCESS, records.size(), null);
-                return OrderResult.ok(txId, ids, file.fileName(), warnings);
+                return OrderResult.ok(txId, ids, file.fileName(), warnings, skipped);
             } catch (RuntimeException ex) {
                 JdbcSupport.rollbackQuietly(c);
                 EaiException e = EaiException.wrap(ex);

@@ -17,6 +17,7 @@ import com.assignment.eai.mapper.OrderMapper;
 import com.assignment.eai.mapper.ReceiptFileMapper;
 import com.assignment.eai.model.OrderMessage;
 import com.assignment.eai.model.OrderRecord;
+import com.assignment.eai.model.SkippedItem;
 import com.assignment.eai.receiver.FtpReceiptReceiver;
 import com.assignment.eai.receiver.JdbcOrderReceiver;
 import com.assignment.eai.receiver.JdbcShipmentReceiver;
@@ -143,7 +144,25 @@ public final class SelfTest {
         OrderMessage m2 = new OrderXmlParser().parse(euckr, null);
         check("EUC-KR 선언 XML 한글 복원", "홍길동".equals(m2.headers().get(0).name()) && "청바지".equals(m2.items().get(0).itemName()));
 
-        check("ITEM 의 USER_ID 에 HEADER 없으면 거부", throwsCode(() -> validate(SAMPLE.replace("<USER_ID>USER2</USER_ID>\n    <ITEM_ID>", "<USER_ID>USER9</USER_ID>\n    <ITEM_ID>")), ErrorCode.VALIDATION));
+        String orphan = SAMPLE.replace("<USER_ID>USER2</USER_ID>\n    <ITEM_ID>", "<USER_ID>USER9</USER_ID>\n    <ITEM_ID>");
+        OrderValidator.Result partial = validate(orphan);
+        check("HEADER 없는 ITEM 만 제외하고 나머지는 처리 대상", partial.accepted().items().size() == 1
+                && partial.accepted().items().get(0).itemId().equals("ITEM1")
+                && partial.skipped().equals(List.of(new SkippedItem("USER9", "ITEM2", "USER_ID(USER9) 에 해당하는 HEADER 가 없습니다."))));
+        check("제외 건에는 ORDER_ID 를 채번하지 않음", new OrderMapper().toRecords(partial.accepted(), KEY, 0).stream()
+                .map(OrderRecord::orderId).toList().equals(List.of("A000")));
+        check("모든 ITEM 이 HEADER 없으면 전체 거부", throwsCode(() -> validate(orphan.replace("<USER_ID>USER1</USER_ID>\n    <ITEM_ID>", "<USER_ID>USER8</USER_ID>\n    <ITEM_ID>")), ErrorCode.VALIDATION));
+        check("HEADER 없는 ITEM 이 있어도 PRICE 오류가 있으면 전체 거부", throwsCode(() -> validate(orphan.replace("21000", "2만원")), ErrorCode.VALIDATION));
+        check("HEADER 없는 ITEM 이 있어도 필수값 누락이면 전체 거부", throwsCode(() -> validate(orphan.replace("<ITEM_NAME>청바지</ITEM_NAME>", "")), ErrorCode.VALIDATION));
+        check("제외 건 없으면 skipped 비어 있음", validate(SAMPLE).skipped().isEmpty());
+
+        Map<String, Object> partialJson = OrderResult.ok("TX1", List.of("A000"), "f.txt", List.of(), partial.skipped()).toJson();
+        check("일부 제외 응답: HTTP 200 / PARTIAL / 제외 건수·목록", OrderResult.ok("TX1", List.of("A000"), "f.txt", List.of(), partial.skipped()).httpStatus() == 200
+                && "PARTIAL".equals(partialJson.get("result")) && "S001".equals(partialJson.get("code"))
+                && Integer.valueOf(1).equals(partialJson.get("skippedCount"))
+                && Json.write(partialJson).contains("\"skippedItems\":[{\"userId\":\"USER9\",\"itemId\":\"ITEM2\",\"reason\":"));
+        Map<String, Object> okJson = OrderResult.ok("TX2", List.of("A000"), "f.txt", List.of(), List.of()).toJson();
+        check("제외 없으면 SUCCESS, skippedItems 없음", "SUCCESS".equals(okJson.get("result")) && !okJson.containsKey("skippedItems"));
         check("PRICE 숫자 아니면 거부", throwsCode(() -> validate(SAMPLE.replace("21000", "2만원")), ErrorCode.VALIDATION));
         check("값에 구분자 ^ 있으면 거부", throwsCode(() -> validate(SAMPLE.replace("청바지", "청^바지")), ErrorCode.VALIDATION));
         check("XML 형식 오류 거부", throwsCode(() -> validate("<HEADER><USER_ID>U</HEADER>"), ErrorCode.VALIDATION));
@@ -162,8 +181,8 @@ public final class SelfTest {
                 .equals("INSPIEN_홍길동_20261013090507.txt"));
     }
 
-    static void validate(String xml) {
-        new OrderValidator().validate(new OrderXmlParser().parse(xml.getBytes(StandardCharsets.UTF_8), null));
+    static OrderValidator.Result validate(String xml) {
+        return new OrderValidator().validate(new OrderXmlParser().parse(xml.getBytes(StandardCharsets.UTF_8), null));
     }
 
     // ------------------------------------------------------------------ scenario 1
